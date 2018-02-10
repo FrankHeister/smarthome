@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="bluetooth" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="eqiva_blue">
+        <supported-bridge-type-refs>
+            <bridge-type-ref id="bluez"/>
+        </supported-bridge-type-refs>
+
+		<label>Eqiva Bluetooth Smart Radiator Thermostat </label>
+		<description>A bluetooth enabled radiator thermostat</description>
+
+		<channels>
+			<channel id="temperature" typeId="temperature" />
+			<channel id="rssi" typeId="rssi" />
+		</channels>
+
+		<config-description>
+			<parameter name="address" type="text">
+				<label>Address</label>
+				<description>Bluetooth address in XX:XX:XX:XX:XX:XX format</description>
+			</parameter>
+		</config-description>
+
+	</thing-type>
+
+	<!-- Color Channel -->
+	<channel-type id="temperature">
+		<item-type>Temperature</item-type>
+		<label>Temperature</label>
+		<description>The temperature channel allows to set the target temperature controlled by the thermostat.
+        </description>
+		<category>Temperatures</category>
+	</channel-type>
+
+</thing:thing-descriptions>
