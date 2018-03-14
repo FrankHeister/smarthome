@@ -92,8 +92,6 @@ public class WelcomeHomeCommands extends AbstractConsoleCommandExtension {
             activate(params, console);
         } else if (COMMAND_ACTIVATE_L.equalsIgnoreCase(command) || COMMAND_ACTIVATE_L_SHORT.equalsIgnoreCase(command)) {
             activateLights(params, console);
-        } else {
-
         }
     }
 
@@ -144,7 +142,6 @@ public class WelcomeHomeCommands extends AbstractConsoleCommandExtension {
      *            provides the output of the command.
      */
     private void activate(String[] params, Console console) {
-
         // parsing command parameter values
         if (params.length < 2) {
             console.println("Missing required parameters");

@@ -39,7 +39,7 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
 
     private ScriptEngineManager scriptEngineManager;
 
-    private static final Collection<String> types = Arrays
+    private static final Collection<String> TYPES = Arrays
             .asList(new String[] { ScriptActionHandler.SCRIPT_ACTION_ID, ScriptConditionHandler.SCRIPT_CONDITION });
 
     @Override
@@ -49,7 +49,7 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
 
     @Override
     public Collection<String> getTypes() {
-        return types;
+        return TYPES;
     }
 
     public void setScriptEngineManager(ScriptEngineManager scriptEngineManager) {
@@ -75,7 +75,6 @@ public class ScriptModuleHandlerFactory extends BaseModuleHandlerFactory {
             } else {
                 logger.error("The ModuleHandler is not supported: {}", moduleTypeUID);
             }
-
         } else {
             logger.error("ModuleType is not registered: {}", moduleTypeUID);
         }

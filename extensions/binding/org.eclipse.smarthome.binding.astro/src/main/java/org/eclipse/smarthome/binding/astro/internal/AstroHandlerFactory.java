@@ -14,13 +14,9 @@ package org.eclipse.smarthome.binding.astro.internal;
 
 import static org.eclipse.smarthome.binding.astro.AstroBindingConstants.*;
 
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -28,9 +24,7 @@ import org.eclipse.smarthome.binding.astro.handler.AstroThingHandler;
 import org.eclipse.smarthome.binding.astro.handler.MoonHandler;
 import org.eclipse.smarthome.binding.astro.handler.SunHandler;
 import org.eclipse.smarthome.binding.astro.internal.util.PropertyUtils;
-import org.eclipse.smarthome.core.i18n.LocationProvider;
 import org.eclipse.smarthome.core.i18n.TimeZoneProvider;
-import org.eclipse.smarthome.core.library.types.PointType;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.binding.BaseThingHandlerFactory;
@@ -50,7 +44,7 @@ public class AstroHandlerFactory extends BaseThingHandlerFactory {
     private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Stream
             .concat(SunHandler.SUPPORTED_THING_TYPES.stream(), MoonHandler.SUPPORTED_THING_TYPES.stream())
             .collect(Collectors.toSet());
-    private static final Map<String, AstroThingHandler> astroThingHandlers = new HashMap<>();
+    private static final Map<String, AstroThingHandler> ASTRO_THING_HANDLERS = new HashMap<>();
     private TimeZoneProvider timeZoneProvider;
 
     @Override
@@ -68,7 +62,7 @@ public class AstroHandlerFactory extends BaseThingHandlerFactory {
             thingHandler = new MoonHandler(thing);
         }
         if (thingHandler != null) {
-            astroThingHandlers.put(thing.getUID().toString(), thingHandler);
+            ASTRO_THING_HANDLERS.put(thing.getUID().toString(), thingHandler);
         }
         return thingHandler;
     }
@@ -76,7 +70,7 @@ public class AstroHandlerFactory extends BaseThingHandlerFactory {
     @Override
     public void unregisterHandler(Thing thing) {
         super.unregisterHandler(thing);
-        astroThingHandlers.remove(thing.getUID().toString());
+        ASTRO_THING_HANDLERS.remove(thing.getUID().toString());
     }
 
     @Reference
@@ -89,6 +83,6 @@ public class AstroHandlerFactory extends BaseThingHandlerFactory {
     }
     
     public static AstroThingHandler getHandler(String thingUid) {
-        return astroThingHandlers.get(thingUid);
+        return ASTRO_THING_HANDLERS.get(thingUid);
     }
 }

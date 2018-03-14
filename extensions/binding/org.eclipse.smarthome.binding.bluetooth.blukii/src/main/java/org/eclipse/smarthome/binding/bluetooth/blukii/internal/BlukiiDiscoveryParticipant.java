@@ -41,17 +41,19 @@ public class BlukiiDiscoveryParticipant implements BluetoothDiscoveryParticipant
 
     @Override
     public @NonNull Set<@NonNull ThingTypeUID> getSupportedThingTypeUIDs() {
-        return Collections.singleton(BlukiiBindingConstants.THING_TYPE_BUTTON);
+        return Collections.singleton(BlukiiBindingConstants.THING_TYPE_BEACON);
     }
 
     @Override
     public @Nullable ThingUID getThingUID(@NonNull BluetoothDevice device) {
-        if (device.getName() != null && device.getName().startsWith(BlukiiBindingConstants.BLUKII_PREFIX)) {
-            return new ThingUID(BlukiiBindingConstants.THING_TYPE_BUTTON, device.getAdapter().getUID(),
-                    device.getAddress().toString().toLowerCase().replace(":", ""));
-        } else {
-            return null;
+        String name = device.getName();
+        if (name != null && name.startsWith(BlukiiBindingConstants.BLUKII_PREFIX)) {
+            if (name.charAt(BlukiiBindingConstants.BLUKII_PREFIX.length()) == 'B') {
+                return new ThingUID(BlukiiBindingConstants.THING_TYPE_BEACON, device.getAdapter().getUID(),
+                        device.getAddress().toString().toLowerCase().replace(":", ""));
+            }
         }
+        return null;
     }
 
     @Override
@@ -59,7 +61,7 @@ public class BlukiiDiscoveryParticipant implements BluetoothDiscoveryParticipant
         ThingUID thingUID = getThingUID(device);
 
         if (thingUID != null) {
-            String label = device.getName();
+            String label = "Blukii SmartBeacon";
 
             Map<String, Object> properties = new HashMap<>();
             properties.put(BluetoothBindingConstants.CONFIGURATION_ADDRESS, device.getAddress().toString());

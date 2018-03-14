@@ -31,6 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 import org.eclipse.smarthome.config.core.ConfigDescription;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
@@ -38,6 +39,7 @@ import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.common.SafeCaller;
 import org.eclipse.smarthome.core.common.ThreadPoolManager;
+import org.eclipse.smarthome.core.common.registry.Identifiable;
 import org.eclipse.smarthome.core.common.registry.ManagedProvider;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.events.EventPublisher;
@@ -55,13 +57,18 @@ import org.eclipse.smarthome.core.thing.ThingStatusInfo;
 import org.eclipse.smarthome.core.thing.ThingTypeMigrationService;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
+import org.eclipse.smarthome.core.thing.UID;
 import org.eclipse.smarthome.core.thing.binding.BridgeHandler;
 import org.eclipse.smarthome.core.thing.binding.ThingHandler;
 import org.eclipse.smarthome.core.thing.binding.ThingHandlerCallback;
 import org.eclipse.smarthome.core.thing.binding.ThingHandlerFactory;
+import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder;
 import org.eclipse.smarthome.core.thing.binding.builder.ThingStatusInfoBuilder;
 import org.eclipse.smarthome.core.thing.events.ThingEventFactory;
 import org.eclipse.smarthome.core.thing.i18n.ThingStatusInfoI18nLocalizationService;
+import org.eclipse.smarthome.core.thing.type.ChannelType;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeRegistry;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
 import org.eclipse.smarthome.core.thing.type.ThingType;
 import org.eclipse.smarthome.core.thing.type.ThingTypeRegistry;
 import org.eclipse.smarthome.core.thing.util.ThingHandlerHelper;
@@ -125,6 +132,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
             .synchronizedSetMultimap(HashMultimap.<ThingHandlerFactory, ThingHandler> create());
 
     private ThingTypeRegistry thingTypeRegistry;
+    private ChannelTypeRegistry channelTypeRegistry;
 
     private ThingStatusInfoI18nLocalizationService thingStatusInfoI18nLocalizationService;
 
@@ -251,6 +259,15 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
                 final Configuration configuration) {
             ThingManager.this.migrateThingType(thing, thingTypeUID, configuration);
         }
+
+        @Override
+        public ChannelBuilder createChannelBuilder(ChannelUID channelUID, ChannelTypeUID channelTypeUID) {
+            ChannelType channelType = channelTypeRegistry.getChannelType(channelTypeUID);
+            if (channelType == null) {
+                throw new IllegalArgumentException("Channel type " + channelTypeUID + " is not known");
+            }
+            return ThingFactoryHelper.createChannelBuilder(channelUID, channelType, configDescriptionRegistry);
+        };
 
     };
 
@@ -388,7 +405,8 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
             if (thingHandlerFactory != null) {
                 unregisterAndDisposeHandler(thingHandlerFactory, thing, thingHandler);
                 if (thingTrackerEvent == ThingTrackerEvent.THING_REMOVED) {
-                    safeCaller.create(thingHandlerFactory).build().removeThing(thing.getUID());
+                    safeCaller.create(thingHandlerFactory, ThingHandlerFactory.class).build()
+                            .removeThing(thing.getUID());
                 }
             } else {
                 logger.warn("Cannot unregister handler. No handler factory for thing '{}' found.", thing.getUID());
@@ -410,15 +428,33 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
             Lock lock1 = getLockForThing(thing.getUID());
             try {
                 lock1.lock();
-                ThingHandler thingHandler = replaceThing(getThing(thingUID), thing);
+                Thing oldThing = getThing(thingUID);
+                ThingHandler thingHandler = replaceThing(oldThing, thing);
                 if (thingHandler != null) {
                     if (ThingHandlerHelper.isHandlerInitialized(thing) || isInitializing(thing)) {
-                        safeCaller.create(thingHandler).build().thingUpdated(thing);
+                        if (oldThing != null) {
+                            oldThing.setHandler(null);
+                        }
+                        thing.setHandler(thingHandler);
+                        safeCaller.create(thingHandler, ThingHandler.class).build().thingUpdated(thing);
                     } else {
                         logger.debug(
-                                "Cannot notify handler about updated thing '{}', because handler is not initialized (thing must be in status UNKNOWN, ONLINE or OFFLINE). Starting handler initialization instead.",
+                                "Cannot notify handler about updated thing '{}', because handler is not initialized (thing must be in status UNKNOWN, ONLINE or OFFLINE).",
                                 thing.getThingTypeUID());
-                        initializeHandler(thing);
+                        if (thingHandler.getThing() == thing) {
+                            logger.debug("Initializing handler of thing '{}'", thing.getThingTypeUID());
+                            if (oldThing != null) {
+                                oldThing.setHandler(null);
+                            }
+                            thing.setHandler(thingHandler);
+                            initializeHandler(thing);
+                        } else {
+                            logger.debug("Replacing uninitialized handler for updated thing '{}'",
+                                    thing.getThingTypeUID());
+                            ThingHandlerFactory thingHandlerFactory = getThingHandlerFactory(thing);
+                            unregisterHandler(thingHandler.getThing(), thingHandlerFactory);
+                            registerAndInitializeHandler(thing, thingHandlerFactory);
+                        }
                     }
                 } else {
                     registerAndInitializeHandler(thing, getThingHandlerFactory(thing));
@@ -435,12 +471,6 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
         if (oldThing != newThing) {
             this.things.remove(oldThing);
             this.things.add(newThing);
-            if (thingHandler != null) {
-                newThing.setHandler(thingHandler);
-            }
-            if (oldThing != null) {
-                oldThing.setHandler(null);
-            }
         }
         return thingHandler;
     }
@@ -551,7 +581,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
                 throw new IllegalStateException("Handler should not be null here");
             } else {
                 if (handler.getThing() != thing) {
-                    logger.debug("The model of {} is inconsistent [thing.getHandler().getThing() != thing]",
+                    logger.warn("The model of {} is inconsistent [thing.getHandler().getThing() != thing]",
                             thing.getUID());
                 }
             }
@@ -578,26 +608,51 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
     }
 
     private boolean isInitializable(Thing thing, ThingType thingType) {
-        // determines if all 'required' configuration parameters are available in the configuration
-        if (thingType == null) {
-            logger.debug("Thing type for thing {} is not known, assuming it is initializable", thing.getUID());
+        if (!isComplete(thingType, thing.getUID(), tt -> tt.getConfigDescriptionURI(), thing.getConfiguration())) {
+            return false;
+        }
+
+        for (Channel channel : thing.getChannels()) {
+            ChannelType channelType = channelTypeRegistry.getChannelType(channel.getChannelTypeUID());
+            if (!isComplete(channelType, channel.getUID(), ct -> ct.getConfigDescriptionURI(),
+                    channel.getConfiguration())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determines if all 'required' configuration parameters are available in the configuration
+     *
+     * @param prototype the "prototype", i.e. thing type or channel type
+     * @param targetUID the UID of the thing or channel entity
+     * @param configDescriptionURIFunction a function to determine the the config description UID for the given
+     *            prototype
+     * @param configuration the current configuration
+     * @return true if all required configuration parameters are given, false otherwise
+     */
+    private <T extends Identifiable<?>> boolean isComplete(T prototype, UID targetUID,
+            Function<T, URI> configDescriptionURIFunction, Configuration configuration) {
+        if (prototype == null) {
+            logger.debug("Prototype for '{}' is not known, assuming it is initializable", targetUID);
             return true;
         }
 
-        ConfigDescription description = resolve(thingType.getConfigDescriptionURI(), null);
+        ConfigDescription description = resolve(configDescriptionURIFunction.apply(prototype), null);
         if (description == null) {
-            logger.debug("Config description for thingtype {} is not resolvable, assuming thing {} is initializable",
-                    thingType.getUID(), thing.getUID());
+            logger.debug("Config description for '{}' is not resolvable, assuming '{}' is initializable",
+                    prototype.getUID(), targetUID);
             return true;
         }
 
         List<String> requiredParameters = getRequiredParameters(description);
-        Map<String, Object> properties = thing.getConfiguration().getProperties();
+        Set<String> propertyKeys = configuration.getProperties().keySet();
         if (logger.isDebugEnabled()) {
-            logger.debug("Configuration of thing {} needs {}, has {}.", thing.getUID(), requiredParameters,
-                    thing.getConfiguration().getProperties().keySet());
+            logger.debug("Configuration of '{}' needs {}, has {}.", targetUID, requiredParameters, propertyKeys);
         }
-        return properties.keySet().containsAll(requiredParameters);
+        return propertyKeys.containsAll(requiredParameters);
     }
 
     private ConfigDescription resolve(URI configDescriptionURI, Locale locale) {
@@ -623,7 +678,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
     private void doInitializeHandler(final ThingHandler thingHandler) {
         logger.debug("Calling initialize handler for thing '{}' at '{}'.", thingHandler.getThing().getUID(),
                 thingHandler);
-        safeCaller.create(thingHandler).onTimeout(() -> {
+        safeCaller.create(thingHandler, ThingHandler.class).onTimeout(() -> {
             logger.warn("Initializing handler for thing '{}' takes more than {}ms.", thingHandler.getThing().getUID(),
                     SafeCaller.DEFAULT_TIMEOUT);
         }).onException(e -> {
@@ -671,7 +726,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
 
     private void doUnregisterHandler(final Thing thing, final ThingHandlerFactory thingHandlerFactory) {
         logger.debug("Calling unregisterHandler handler for thing '{}' at '{}'.", thing.getUID(), thingHandlerFactory);
-        safeCaller.create((Runnable) () -> {
+        safeCaller.create(() -> {
             ThingHandler thingHandler = thing.getHandler();
             thingHandlerFactory.unregisterHandler(thing);
             if (thingHandler != null) {
@@ -681,7 +736,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
             setThingStatus(thing, buildStatusInfo(ThingStatus.UNINITIALIZED, ThingStatusDetail.HANDLER_MISSING_ERROR));
             thingHandlers.remove(thing.getUID());
             thingHandlersByFactory.remove(thingHandlerFactory, thingHandler);
-        }).build().run();
+        }, Runnable.class).build().run();
     }
 
     private void disposeHandler(Thing thing, ThingHandler thingHandler) {
@@ -700,7 +755,7 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
     private void doDisposeHandler(final ThingHandler thingHandler) {
         logger.debug("Calling dispose handler for thing '{}' at '{}'.", thingHandler.getThing().getUID(), thingHandler);
         setThingStatus(thingHandler.getThing(), buildStatusInfo(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE));
-        safeCaller.create(thingHandler).onTimeout(() -> {
+        safeCaller.create(thingHandler, ThingHandler.class).onTimeout(() -> {
             logger.warn("Disposing handler for thing '{}' takes more than {}ms.", thingHandler.getThing().getUID(),
                     SafeCaller.DEFAULT_TIMEOUT);
         }).onException(e -> {
@@ -1025,6 +1080,15 @@ public class ThingManager implements ThingTracker, ThingTypeMigrationService, Re
 
     protected void unsetThingTypeRegistry(ThingTypeRegistry thingTypeRegistry) {
         this.thingTypeRegistry = null;
+    }
+
+    @Reference
+    protected void setChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = channelTypeRegistry;
+    }
+
+    protected void unsetChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = null;
     }
 
     @Reference

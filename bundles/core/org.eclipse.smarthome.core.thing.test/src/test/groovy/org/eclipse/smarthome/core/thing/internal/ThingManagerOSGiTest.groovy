@@ -35,12 +35,11 @@ import org.eclipse.smarthome.core.items.ItemRegistry
 import org.eclipse.smarthome.core.items.events.ItemEventFactory
 import org.eclipse.smarthome.core.items.events.ItemStateEvent
 import org.eclipse.smarthome.core.library.items.StringItem
-import org.eclipse.smarthome.core.library.types.DecimalType
+import org.eclipse.smarthome.core.library.types.OnOffType
 import org.eclipse.smarthome.core.library.types.StringType
 import org.eclipse.smarthome.core.service.ReadyMarker
 import org.eclipse.smarthome.core.service.ReadyService
 import org.eclipse.smarthome.core.thing.Bridge
-import org.eclipse.smarthome.core.thing.Channel
 import org.eclipse.smarthome.core.thing.ChannelUID
 import org.eclipse.smarthome.core.thing.ManagedThingProvider
 import org.eclipse.smarthome.core.thing.Thing
@@ -58,6 +57,7 @@ import org.eclipse.smarthome.core.thing.binding.ThingHandlerCallback
 import org.eclipse.smarthome.core.thing.binding.ThingHandlerFactory
 import org.eclipse.smarthome.core.thing.binding.ThingTypeProvider
 import org.eclipse.smarthome.core.thing.binding.builder.BridgeBuilder
+import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder
 import org.eclipse.smarthome.core.thing.binding.builder.ThingBuilder
 import org.eclipse.smarthome.core.thing.binding.builder.ThingStatusInfoBuilder
 import org.eclipse.smarthome.core.thing.events.ThingEventFactory
@@ -111,8 +111,7 @@ class ThingManagerOSGiTest extends OSGiTest {
         def channelTypeUID = new ChannelTypeUID("binding:channelType")
 
         THING = ThingBuilder.create(THING_UID).withChannels([
-            new Channel(CHANNEL_UID, channelTypeUID, "Switch", ChannelKind.STATE,
-            null, Collections.emptySet(), null, null, null)
+            ChannelBuilder.create(CHANNEL_UID, "Switch").withKind(ChannelKind.STATE).withType(channelTypeUID).build()
         ]).build()
         registerVolatileStorageService()
 
@@ -274,7 +273,7 @@ class ThingManagerOSGiTest extends OSGiTest {
         registerThingTypeProvider()
 
         Thing thing2 = ThingBuilder.create(THING_UID).withChannels([
-            new Channel(CHANNEL_UID, "Switch")
+            ChannelBuilder.create(CHANNEL_UID, "Switch").build()
         ]).build()
 
         boolean raceCondition = false
@@ -710,13 +709,13 @@ class ThingManagerOSGiTest extends OSGiTest {
         callback.statusUpdated(THING, ThingStatusInfoBuilder.create(ThingStatus.ONLINE).build())
 
         // event should be delivered
-        eventPublisher.post(ItemEventFactory.createCommandEvent(itemName, new DecimalType(10)))
+        eventPublisher.post(ItemEventFactory.createCommandEvent(itemName, OnOffType.ON))
         waitForAssert { assertThat handleCommandWasCalled, is(true) }
 
         handleCommandWasCalled = false
 
         // event should not be delivered, because the source is the same
-        eventPublisher.post(ItemEventFactory.createCommandEvent(itemName, new DecimalType(10), CHANNEL_UID.toString()))
+        eventPublisher.post(ItemEventFactory.createCommandEvent(itemName, OnOffType.ON, CHANNEL_UID.toString()))
         waitFor({handleCommandWasCalled == true}, 1000)
         assertThat handleCommandWasCalled, is(false)
     }
@@ -777,7 +776,7 @@ class ThingManagerOSGiTest extends OSGiTest {
         receivedEvent = null
         itemUpdateEvent = null
         def thing = ThingBuilder.create(THING_UID).withChannels([
-            new Channel(CHANNEL_UID, "Switch")
+            ChannelBuilder.create(CHANNEL_UID, "Switch").build()
         ]).build()
         managedThingProvider.update(thing)
 
@@ -1592,7 +1591,7 @@ class ThingManagerOSGiTest extends OSGiTest {
         itemChannelLinkRegistry.add(new ItemChannelLink("testItem", new ChannelUID(THING.getUID(), "channel")))
         waitForAssert { assertThat itemRegistry.get("testItem"), is(notNullValue()) }
 
-        eventPublisher.post(ItemEventFactory.createCommandEvent("testItem", new StringType("TEST")))
+        eventPublisher.post(ItemEventFactory.createCommandEvent("testItem", OnOffType.ON))
 
         assertThat handleCommandCalled, is(false)
 
@@ -1600,13 +1599,13 @@ class ThingManagerOSGiTest extends OSGiTest {
         callback.statusUpdated(THING, statusInfo)
         assertThat THING.statusInfo, is(statusInfo)
 
-        eventPublisher.post(ItemEventFactory.createCommandEvent("testItem", new StringType("TEST")))
+        eventPublisher.post(ItemEventFactory.createCommandEvent("testItem", OnOffType.ON))
 
         waitForAssert {
             assertThat handleCommandCalled, is(true)
         }
         assertThat calledChannelUID, is(equalTo(new ChannelUID(THING.getUID(), "channel")))
-        assertThat calledCommand, is(equalTo(new StringType("TEST")))
+        assertThat calledCommand, is(equalTo(OnOffType.ON))
     }
 
     private void registerThingTypeProvider() {

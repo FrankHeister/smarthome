@@ -16,15 +16,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import javax.measure.Quantity;
+
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.core.internal.items.GroupFunctionHelper;
 import org.eclipse.smarthome.core.items.ActiveItem;
 import org.eclipse.smarthome.core.items.GenericItem;
 import org.eclipse.smarthome.core.items.GroupFunction;
 import org.eclipse.smarthome.core.items.GroupItem;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemFactory;
-import org.eclipse.smarthome.core.library.types.ArithmeticGroupFunction;
-import org.eclipse.smarthome.core.library.types.StringType;
+import org.eclipse.smarthome.core.library.items.NumberItem;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.core.types.TypeParser;
 import org.slf4j.LoggerFactory;
@@ -36,7 +40,10 @@ import org.slf4j.LoggerFactory;
  * @author Stefan Bußweiler - Moved to core and renamed class to DTO mapper
  * @author Dennis Nobel - Removed dynamic data
  */
+@NonNullByDefault
 public class ItemDTOMapper {
+
+    private static final GroupFunctionHelper GROUP_FUNCTION_HELPER = new GroupFunctionHelper();
 
     /**
      * Maps item DTO into item object.
@@ -45,7 +52,7 @@ public class ItemDTOMapper {
      * @param itemFactories the item factories in order to create the items
      * @return the item object
      */
-    public static ActiveItem map(ItemDTO itemDTO, Set<ItemFactory> itemFactories) {
+    public static @Nullable ActiveItem map(ItemDTO itemDTO, Set<ItemFactory> itemFactories) {
         if (itemDTO == null) {
             throw new IllegalArgumentException("The argument 'itemDTO' must no be null.");
         }
@@ -88,87 +95,24 @@ public class ItemDTOMapper {
         return newItem;
     }
 
-    public static GroupFunction mapFunction(Item baseItem, GroupFunctionDTO function) {
-        List<State> args = new ArrayList<State>();
+    public static GroupFunction mapFunction(@Nullable Item baseItem, GroupFunctionDTO function) {
+        List<State> args = parseStates(baseItem, function.params);
 
-        GroupFunction groupFunction = null;
-        switch (function.name.toUpperCase()) {
-            case "AND":
-                args = parseStates(baseItem, function.params);
-                if (args.size() == 2) {
-                    groupFunction = new ArithmeticGroupFunction.And(args.get(0), args.get(1));
-                } else {
-                    LoggerFactory.getLogger(ItemDTOMapper.class)
-                            .error("Group function 'AND' requires two arguments. Using Equality instead.");
-                }
-                break;
-            case "OR":
-                args = parseStates(baseItem, function.params);
-                if (args.size() == 2) {
-                    groupFunction = new ArithmeticGroupFunction.Or(args.get(0), args.get(1));
-                } else {
-                    LoggerFactory.getLogger(ItemDTOMapper.class)
-                            .error("Group function 'OR' requires two arguments. Using Equality instead.");
-                }
-                break;
-            case "NAND":
-                args = parseStates(baseItem, function.params);
-                if (args.size() == 2) {
-                    groupFunction = new ArithmeticGroupFunction.NAnd(args.get(0), args.get(1));
-                } else {
-                    LoggerFactory.getLogger(ItemDTOMapper.class)
-                            .error("Group function 'NOT AND' requires two arguments. Using Equality instead.");
-                }
-                break;
-            case "NOR":
-                args = parseStates(baseItem, function.params);
-                if (args.size() == 2) {
-                    groupFunction = new ArithmeticGroupFunction.NOr(args.get(0), args.get(1));
-                } else {
-                    LoggerFactory.getLogger(ItemDTOMapper.class)
-                            .error("Group function 'NOT OR' requires two arguments. Using Equality instead.");
-                }
-                break;
-            case "COUNT":
-                if (function.params != null && function.params.length == 1) {
-                    State countParam = new StringType(function.params[0]);
-                    groupFunction = new ArithmeticGroupFunction.Count(countParam);
-                } else {
-                    LoggerFactory.getLogger(ItemDTOMapper.class)
-                            .error("Group function 'COUNT' requires one argument. Using Equality instead.");
-                }
-                break;
-            case "AVG":
-                groupFunction = new ArithmeticGroupFunction.Avg();
-                break;
-            case "SUM":
-                groupFunction = new ArithmeticGroupFunction.Sum();
-                break;
-            case "MIN":
-                groupFunction = new ArithmeticGroupFunction.Min();
-                break;
-            case "MAX":
-                groupFunction = new ArithmeticGroupFunction.Max();
-                break;
-            case "EQUAL":
-                groupFunction = new GroupFunction.Equality();
-                break;
-            default:
-                LoggerFactory.getLogger(ItemDTOMapper.class)
-                        .error("Unknown group function '{}'. Using Equality instead.", function.name);
-        }
-
-        if (groupFunction == null) {
-            groupFunction = new GroupFunction.Equality();
-        }
-
-        return groupFunction;
+        return GROUP_FUNCTION_HELPER.createGroupFunction(function, args, getDimension(baseItem));
     }
 
-    private static List<State> parseStates(Item baseItem, String[] params) {
+    private static @Nullable Class<? extends Quantity<?>> getDimension(@Nullable Item baseItem) {
+        if (baseItem instanceof NumberItem) {
+            return ((NumberItem) baseItem).getDimension();
+        }
+
+        return null;
+    }
+
+    private static List<State> parseStates(@Nullable Item baseItem, String @Nullable [] params) {
         List<State> states = new ArrayList<State>();
 
-        if (params == null) {
+        if (params == null || baseItem == null) {
             return states;
         }
 
@@ -210,6 +154,7 @@ public class ItemDTOMapper {
                 groupItemDTO.function = mapFunction(groupItem.getFunction());
             }
         }
+
         itemDTO.name = item.getName();
         itemDTO.type = item.getType();
         itemDTO.label = item.getLabel();
@@ -218,7 +163,11 @@ public class ItemDTOMapper {
         itemDTO.groupNames = item.getGroupNames();
     }
 
-    public static GroupFunctionDTO mapFunction(GroupFunction function) {
+    public static @Nullable GroupFunctionDTO mapFunction(@Nullable GroupFunction function) {
+        if (function == null) {
+            return null;
+        }
+
         GroupFunctionDTO dto = new GroupFunctionDTO();
         dto.name = function.getClass().getSimpleName().toUpperCase();
         List<String> params = new ArrayList<>();
@@ -239,7 +188,7 @@ public class ItemDTOMapper {
      * @param itemname name of the item
      * @return the newly created item
      */
-    private static GenericItem createItem(String itemType, String itemname, Set<ItemFactory> itemFactories) {
+    private static @Nullable GenericItem createItem(String itemType, String itemname, Set<ItemFactory> itemFactories) {
         GenericItem newItem = null;
         for (ItemFactory itemFactory : itemFactories) {
             newItem = itemFactory.createItem(itemType, itemname);

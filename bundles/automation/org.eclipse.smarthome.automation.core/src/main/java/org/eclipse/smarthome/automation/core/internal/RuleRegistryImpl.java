@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -93,7 +92,7 @@ public class RuleRegistryImpl extends AbstractRegistry<Rule, String, RuleProvide
 
     private static final String DISABLED_RULE_STORAGE = "automation_rules_disabled";
     private static final String SOURCE = RuleRegistryImpl.class.getSimpleName();
-    private static final Logger logger = LoggerFactory.getLogger(RuleRegistryImpl.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(RuleRegistryImpl.class.getName());
 
     private final RuleEngine ruleEngine = new RuleEngine();
     private Storage<Boolean> disabledRulesStorage;
@@ -538,15 +537,6 @@ public class RuleRegistryImpl extends AbstractRegistry<Rule, String, RuleProvide
             Rule rule = get(rUID);
             updateRuleByTemplate(getProvider(rule), rule);
         }
-    }
-
-    private Provider<Rule> getProvider(Rule rule) {
-        for (Entry<Provider<Rule>, Collection<Rule>> entry : elementMap.entrySet()) {
-            if (entry.getValue().contains(rule)) {
-                return entry.getKey();
-            }
-        }
-        return null;
     }
 
     @Override

@@ -34,7 +34,7 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 public class BlukiiHandlerFactory extends BaseThingHandlerFactory {
 
     private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Collections
-            .singleton(BlukiiBindingConstants.THING_TYPE_BUTTON);
+            .singleton(BlukiiBindingConstants.THING_TYPE_BEACON);
 
     @Override
     public boolean supportsThingType(ThingTypeUID thingTypeUID) {
@@ -45,7 +45,7 @@ public class BlukiiHandlerFactory extends BaseThingHandlerFactory {
     protected ThingHandler createHandler(Thing thing) {
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
 
-        if (thingTypeUID.equals(BlukiiBindingConstants.THING_TYPE_BUTTON)) {
+        if (thingTypeUID.equals(BlukiiBindingConstants.THING_TYPE_BEACON)) {
             return new BlukiiHandler(thing);
         }
 

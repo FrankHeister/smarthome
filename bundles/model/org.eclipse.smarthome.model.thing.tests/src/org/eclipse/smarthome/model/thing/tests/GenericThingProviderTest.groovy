@@ -16,6 +16,7 @@ import static org.hamcrest.CoreMatchers.*
 import static org.junit.Assert.*
 import static org.junit.matchers.JUnitMatchers.*
 
+import org.eclipse.smarthome.core.events.Event
 import org.eclipse.smarthome.core.events.EventSubscriber
 import org.eclipse.smarthome.core.thing.Bridge
 import org.eclipse.smarthome.core.thing.Channel
@@ -341,6 +342,32 @@ class GenericThingProviderTest extends OSGiTest {
     }
 
     @Test
+    void 'assert that channel definitions with dimension are parsed'() {
+        def things = thingRegistry.getAll()
+        assertThat things.size(), is(0)
+
+        String model =
+                '''
+                hue:SENSOR:sensor_custom [] {
+                Number:Temperature : sensor1
+                Number:Pressure : sensor2
+                }
+
+                '''
+
+        modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.bytes))
+        def List<Thing> actualThings = thingRegistry.getAll()
+
+        assertThat actualThings.size(), is(1)
+
+        Thing thingDefault = actualThings.find { it.getUID().getId().equals("sensor_custom") }
+        assertThat thingDefault.getChannels().size(), is(2)
+
+        assertThat thingDefault.getChannel("sensor1").getAcceptedItemType(), is("Number:Temperature")
+        assertThat thingDefault.getChannel("sensor2").getAcceptedItemType(), is("Number:Pressure")
+    }
+
+    @Test
     void 'assert that things can be embedded within bridges in short notation'() {
         assertThat thingRegistry.getAll().size(), is(0)
 
@@ -473,8 +500,11 @@ class GenericThingProviderTest extends OSGiTest {
         assertThat thingRegistry.getAll().size(), is(2)
 
         waitForAssert {
-            assertThat receivedEvents.size(), is(equalTo(2))
-            receivedEvents.each { assertThat it, isA(ThingUpdatedEvent) }
+            assertEquals(1, receivedEvents.size());
+            Event event = receivedEvents.get(0);
+            assertEquals(ThingUpdatedEvent.class, event.getClass());
+            ThingUpdatedEvent thingUpdatedEvent = (ThingUpdatedEvent) event;
+            assertEquals("hue:LCT001:myBridge:bulb1", thingUpdatedEvent.getThing().UID.toString());
         }
 
     }

@@ -14,14 +14,13 @@ package org.eclipse.smarthome.binding.ntp.test;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.assertThat;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -50,6 +49,7 @@ import org.eclipse.smarthome.core.thing.ThingRegistry;
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.ThingUID;
 import org.eclipse.smarthome.core.thing.binding.ThingHandler;
+import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder;
 import org.eclipse.smarthome.core.thing.binding.builder.ThingBuilder;
 import org.eclipse.smarthome.core.thing.link.ItemChannelLink;
 import org.eclipse.smarthome.core.thing.link.ManagedItemChannelLinkProvider;
@@ -64,6 +64,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -208,6 +209,7 @@ public class NtpOSGiTest extends JavaOSGiTest {
     }
 
     @Test
+    @Ignore("https://github.com/eclipse/smarthome/issues/5224")
     public void testDateTimeChannelTimeZoneUpdate() {
 
         Configuration configuration = new Configuration();
@@ -230,6 +232,7 @@ public class NtpOSGiTest extends JavaOSGiTest {
     }
 
     @Test
+    @Ignore("https://github.com/eclipse/smarthome/issues/5224")
     public void testDateTimeChannelCalendarTimeZoneUpdate() {
         Configuration configuration = new Configuration();
         configuration.put(NtpBindingConstants.PROPERTY_TIMEZONE, TEST_TIME_ZONE_ID);
@@ -410,8 +413,8 @@ public class NtpOSGiTest extends JavaOSGiTest {
         ThingUID ntpUid = new ThingUID(NtpBindingConstants.THING_TYPE_NTP, TEST_THING_ID);
 
         ChannelUID channelUID = new ChannelUID(ntpUid, channelID);
-        Channel channel = new Channel(channelUID, channelTypeUID, acceptedItemType, ChannelKind.STATE,
-                channelConfiguration, Collections.emptySet(), null, "label", null);
+        Channel channel = ChannelBuilder.create(channelUID, acceptedItemType).withType(channelTypeUID)
+                .withConfiguration(channelConfiguration).withLabel("label").withKind(ChannelKind.STATE).build();
 
         ntpThing = ThingBuilder.create(NtpBindingConstants.THING_TYPE_NTP, ntpUid).withConfiguration(configuration)
                 .withChannel(channel).build();

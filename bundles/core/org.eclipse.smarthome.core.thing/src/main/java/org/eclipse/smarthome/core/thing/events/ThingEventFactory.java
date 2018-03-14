@@ -37,17 +37,17 @@ import com.google.common.collect.Sets;
  */
 @Component(immediate = true, service = EventFactory.class)
 public class ThingEventFactory extends AbstractEventFactory {
-    private static final String THING_STATUS_INFO_EVENT_TOPIC = "smarthome/things/{thingUID}/status";
+    static final String THING_STATUS_INFO_EVENT_TOPIC = "smarthome/things/{thingUID}/status";
 
-    private static final String THING_STATUS_INFO_CHANGED_EVENT_TOPIC = "smarthome/things/{thingUID}/statuschanged";
+    static final String THING_STATUS_INFO_CHANGED_EVENT_TOPIC = "smarthome/things/{thingUID}/statuschanged";
 
-    private static final String THING_ADDED_EVENT_TOPIC = "smarthome/things/{thingUID}/added";
+    static final String THING_ADDED_EVENT_TOPIC = "smarthome/things/{thingUID}/added";
 
-    private static final String THING_REMOVED_EVENT_TOPIC = "smarthome/things/{thingUID}/removed";
+    static final String THING_REMOVED_EVENT_TOPIC = "smarthome/things/{thingUID}/removed";
 
-    private static final String THING_UPDATED_EVENT_TOPIC = "smarthome/things/{thingUID}/updated";
+    static final String THING_UPDATED_EVENT_TOPIC = "smarthome/things/{thingUID}/updated";
 
-    private static final String CHANNEL_TRIGGERED_EVENT_TOPIC = "smarthome/channels/{channelUID}/triggered";
+    static final String CHANNEL_TRIGGERED_EVENT_TOPIC = "smarthome/channels/{channelUID}/triggered";
 
     /**
      * Constructs a new ThingEventFactory.
@@ -177,9 +177,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      *
      * @param thingUID the thing UID
      * @param thingStatusInfo the thing status info object
-     *
      * @return the created thing status info event
-     *
      * @throws IllegalArgumentException if thingUID or thingStatusInfo is null
      */
     public static ThingStatusInfoEvent createStatusInfoEvent(ThingUID thingUID, ThingStatusInfo thingStatusInfo) {
@@ -198,9 +196,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      * @param thingUID the thing UID
      * @param thingStatusInfo the thing status info object
      * @param oldThingStatusInfo the old thing status info object
-     *
      * @return the created thing status info changed event
-     *
      * @throws IllegalArgumentException if thingUID or thingStatusInfo is null
      */
     public static ThingStatusInfoChangedEvent createStatusInfoChangedEvent(ThingUID thingUID,
@@ -218,9 +214,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      * Creates a thing added event.
      *
      * @param thing the thing
-     *
      * @return the created thing added event
-     *
      * @throws IllegalArgumentException if thing is null
      */
     public static ThingAddedEvent createAddedEvent(Thing thing) {
@@ -235,9 +229,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      * Creates a thing removed event.
      *
      * @param thing the thing
-     *
      * @return the created thing removed event
-     *
      * @throws IllegalArgumentException if thing is null
      */
     public static ThingRemovedEvent createRemovedEvent(Thing thing) {
@@ -253,9 +245,7 @@ public class ThingEventFactory extends AbstractEventFactory {
      *
      * @param thing the thing
      * @param oldThing the old thing
-     *
      * @return the created thing updated event
-     *
      * @throws IllegalArgumentException if thing or oldThing is null
      */
     public static ThingUpdatedEvent createUpdateEvent(Thing thing, Thing oldThing) {
